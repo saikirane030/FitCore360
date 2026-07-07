@@ -24,10 +24,10 @@ This project is designed to showcase practical Python development, data handling
 
 ## Project Structure
 
-- app.py — main Streamlit application entry point
-- pages/ — multi-page experience for nutrition, gym finder, CSV upload, and dashboard views
-- utils/ — reusable logic for calculations, CSV storage, and data handling
-- data/ — sample datasets used by the app
+- fitcore360_app/app.py — main Streamlit application entry point
+- fitcore360_app/pages/ — multi-page experience for nutrition, gym finder, CSV upload, and dashboard views
+- fitcore360_app/utils/ — reusable logic for calculations, CSV storage, and data handling
+- fitcore360_app/data/ — sample datasets used by the app
 
 ## Features
 
@@ -58,6 +58,7 @@ pip install -r requirements.txt
 ## Run the App
 
 ```bash
+cd fitcore360_app
 streamlit run app.py
 ```
 

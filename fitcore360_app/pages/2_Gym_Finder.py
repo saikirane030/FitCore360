@@ -13,9 +13,21 @@ st.caption("Find nearby gyms with live OpenStreetMap data.")
 
 # Global list of preferred Bangalore sub-areas (15)
 KNOWN_SUBAREAS = [
-    "koramangala", "indiranagar", "whitefield", "electronic city", "itpl",
-    "jayanagar", "hsr layout", "marathahalli", "btm layout", "malleshwaram",
-    "rajajinagar", "yelahanka", "hebbal", "banashankari", "jp nagar"
+    "Koramangala",
+    "Indiranagar",
+    "Whitefield",
+    "Electronic City",
+    "ITPL",
+    "Jayanagar",
+    "HSR Layout",
+    "Marathahalli",
+    "BTM Layout",
+    "Malleshwaram",
+    "Rajajinagar",
+    "Yelahanka",
+    "Hebbal",
+    "Banashankari",
+    "JP Nagar",
 ]
 
 # Alternate Overpass endpoints to try when one is slow or down.
@@ -28,21 +40,21 @@ OVERPASS_ENDPOINTS = [
 # Cached sample gyms for Bangalore sub-areas used as a fallback when Overpass times out.
 # Each entry includes a plausible coordinate near Bangalore (approx.) and a sub_area key.
 CACHED_GYMS = [
-    {"name": "Koramangala Fitness Club", "address": "5th Block, Koramangala", "latitude": 12.9372, "longitude": 77.6245, "sub_area": "Koramangala"},
-    {"name": "Indiranagar Strength", "address": "100 Feet Road, Indiranagar", "latitude": 12.9719, "longitude": 77.6412, "sub_area": "Indiranagar"},
-    {"name": "Whitefield Gym", "address": "Whitefield Main Road", "latitude": 12.9690, "longitude": 77.7499, "sub_area": "Whitefield"},
-    {"name": "Electronic City Fitness", "address": "Electronic City Phase 1", "latitude": 12.8468, "longitude": 77.6601, "sub_area": "Electronic City"},
-    {"name": "ITPL Gym", "address": "ITPL Road", "latitude": 12.9696, "longitude": 77.7500, "sub_area": "Itpl"},
-    {"name": "Jayanagar Health Hub", "address": "Jayanagar 4th T Block", "latitude": 12.9250, "longitude": 77.5756, "sub_area": "Jayanagar"},
-    {"name": "HSR Gym", "address": "HSR Layout", "latitude": 12.9141, "longitude": 77.6412, "sub_area": "Hsr Layout"},
-    {"name": "Marathahalli Fit", "address": "Marathahalli Bridge", "latitude": 12.9569, "longitude": 77.7010, "sub_area": "Marathahalli"},
-    {"name": "BTM Fitness", "address": "BTM Layout", "latitude": 12.9250, "longitude": 77.5938, "sub_area": "Btm Layout"},
-    {"name": "Malleshwaram Gym", "address": "Malleshwaram", "latitude": 13.0108, "longitude": 77.5653, "sub_area": "Malleshwaram"},
-    {"name": "Rajajinagar Gym", "address": "Rajajinagar", "latitude": 13.0012, "longitude": 77.5416, "sub_area": "Rajajinagar"},
-    {"name": "Yelahanka Fitness", "address": "Yelahanka", "latitude": 13.0845, "longitude": 77.5903, "sub_area": "Yelahanka"},
-    {"name": "Hebbal Strength", "address": "Hebbal", "latitude": 13.0358, "longitude": 77.5965, "sub_area": "Hebbal"},
-    {"name": "Banashankari Gym", "address": "Banashankari", "latitude": 12.9252, "longitude": 77.5669, "sub_area": "Banashankari"},
-    {"name": "JP Nagar Fitness", "address": "JP Nagar", "latitude": 12.9236, "longitude": 77.5736, "sub_area": "Jp Nagar"},
+    {"name": "Koramangala Fitness Club", "address": "5th Block, Koramangala, Bengaluru", "latitude": 12.9372, "longitude": 77.6245, "sub_area": "Koramangala"},
+    {"name": "Indiranagar Strength", "address": "100 Feet Road, Indiranagar, Bengaluru", "latitude": 12.9719, "longitude": 77.6412, "sub_area": "Indiranagar"},
+    {"name": "Whitefield Gym", "address": "Whitefield Main Road, Whitefield, Bengaluru", "latitude": 12.9690, "longitude": 77.7499, "sub_area": "Whitefield"},
+    {"name": "Electronic City Fitness", "address": "Electronic City Phase 1, Bengaluru", "latitude": 12.8468, "longitude": 77.6601, "sub_area": "Electronic City"},
+    {"name": "ITPL Gym", "address": "ITPL Main Road, Whitefield, Bengaluru", "latitude": 12.9696, "longitude": 77.7500, "sub_area": "ITPL"},
+    {"name": "Jayanagar Health Hub", "address": "4th T Block, Jayanagar, Bengaluru", "latitude": 12.9250, "longitude": 77.5756, "sub_area": "Jayanagar"},
+    {"name": "HSR Fitness", "address": "HSR Layout 2nd Sector, Bengaluru", "latitude": 12.9141, "longitude": 77.6412, "sub_area": "HSR Layout"},
+    {"name": "Marathahalli Fit", "address": "Marathahalli Bridge, Bengaluru", "latitude": 12.9569, "longitude": 77.7010, "sub_area": "Marathahalli"},
+    {"name": "BTM Gym", "address": "BTM Layout 2nd Stage, Bengaluru", "latitude": 12.9250, "longitude": 77.5938, "sub_area": "BTM Layout"},
+    {"name": "Malleshwaram Gym", "address": "Malleshwaram, Bengaluru", "latitude": 13.0108, "longitude": 77.5653, "sub_area": "Malleshwaram"},
+    {"name": "Rajajinagar Strength Hub", "address": "Rajajinagar, Bengaluru", "latitude": 13.0012, "longitude": 77.5416, "sub_area": "Rajajinagar"},
+    {"name": "Yelahanka Fitness", "address": "Yelahanka, Bengaluru", "latitude": 13.0845, "longitude": 77.5903, "sub_area": "Yelahanka"},
+    {"name": "Hebbal Strength", "address": "Hebbal, Bengaluru", "latitude": 13.0358, "longitude": 77.5965, "sub_area": "Hebbal"},
+    {"name": "Banashankari Gym", "address": "Banashankari, Bengaluru", "latitude": 12.9252, "longitude": 77.5669, "sub_area": "Banashankari"},
+    {"name": "JP Nagar Fitness", "address": "JP Nagar, Bengaluru", "latitude": 12.9236, "longitude": 77.5736, "sub_area": "JP Nagar"},
 ]
 
 
