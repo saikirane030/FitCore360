@@ -23,4 +23,4 @@ def delete_last_row(file_path):
         df = pd.read_csv(file_path)
         if not df.empty:
             df = df.iloc[:-1]
-            df.to_csv(file_path, index=False)i
+            df.to_csv(file_path, index=False)
