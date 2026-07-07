@@ -1,8 +1,10 @@
+import re
 import streamlit as st
 import pandas as pd
 import folium
 import requests
-from streamlit_folium import st_folium
+import streamlit.components.v1 as components
+
 
 st.title("🏋️ Gym Finder")
 st.caption("Find nearby gyms with live OpenStreetMap data.")
@@ -34,10 +36,46 @@ def get_coordinates_from_city(city_name):
         return None
 
 
+# --- Helper function: turn a gym name/address into a simple sub-area label ---
+def infer_sub_area(name, address, city_name=""):
+    """Create a simple sub-area label from the gym name or address."""
+    text = f"{name} {address}".lower()
+
+# Preferred sub-areas for Bangalore (top 15)
+    known_areas = [
+        "koramangala", "indiranagar", "whitefield", "electronic city", "itpl",
+        "jayanagar", "hsr layout", "marathahalli", "btm layout", "malleshwaram",
+        "rajajinagar", "yelahanka", "hebbal", "banashankari", "jp nagar"
+    ]
+
+    for area in known_areas:
+        if area in text:
+            return area.title()
+
+    parts = [part.strip() for part in re.split(r",|;|-", f"{address}, {name}") if part.strip()]
+    for part in parts:
+        cleaned = part.strip()
+        if cleaned.lower() in {city_name.lower(), "india", "bangalore", "bengaluru", "karachi", "lahore", "islamabad", "delhi", "mumbai", "hyderabad", "chennai", "kolkata"}:
+            continue
+        if len(cleaned.split()) <= 4:
+            return cleaned.title()
+
+    return "Other Area"
+
+
 # --- Helper function: fetch nearby gyms from the Overpass API ---
 def get_nearby_gyms(lat, lon, radius=5000):
     """Search for gyms near a location using the Overpass API."""
     overpass_url = "https://overpass-api.de/api/interpreter"
+    fallback_gyms = [
+        {
+            "name": "Sample Gym",
+            "address": "Live data unavailable. Please try again shortly.",
+            "latitude": lat,
+            "longitude": lon,
+            "sub_area": "Fallback"
+        }
+    ]
 
     # This query asks OpenStreetMap for nearby gym-like places.
     query = f"""
@@ -54,7 +92,13 @@ def get_nearby_gyms(lat, lon, radius=5000):
     """
 
     try:
-        response = requests.get(overpass_url, params={"data": query}, timeout=15)
+        # Overpass works more reliably when the query is sent as a POST body.
+        response = requests.post(
+            overpass_url,
+            data={"data": query},
+            headers={"User-Agent": "FitCore360/1.0", "Accept": "application/json"},
+            timeout=15,
+        )
         response.raise_for_status()
         data = response.json()
 
@@ -88,77 +132,76 @@ def get_nearby_gyms(lat, lon, radius=5000):
 
         return gyms
 
+    except requests.exceptions.Timeout:
+        st.warning("The live gym search timed out. Showing a fallback location for now.")
+        return fallback_gyms
+
     except requests.exceptions.RequestException as e:
-        st.error(f"The gym search service is unavailable right now: {e}")
-        return []
+        st.warning(f"The live gym search is currently unavailable: {e}")
+        return fallback_gyms
 
 
 # --- User input ---
-search_type = st.radio("Choose search method", ["City name", "Latitude/Longitude"], horizontal=True)
-
-if search_type == "City name":
-    city_name = st.text_input("Enter a city name", placeholder="Example: Bangalore")
-    location_ready = bool(city_name)
-else:
-    lat_input = st.text_input("Latitude", placeholder="12.9716")
-    lon_input = st.text_input("Longitude", placeholder="77.5946")
-    location_ready = bool(lat_input and lon_input)
-
-radius = st.slider("Search radius (meters)", 1000, 10000, 5000, 1000)
+# Restrict the app to Bangalore only with a curated list of sub-areas
+st.subheader("City: Bangalore")
+st.info("This page searches only within Bangalore. Select a sub-area after searching.")
+city_name = "Bangalore"
 
 if st.button("Search gyms"):
-    if not location_ready:
-        st.info("Please enter a city name or both latitude and longitude.")
-    else:
-        if search_type == "City name":
-            coords = get_coordinates_from_city(city_name)
-            if coords is None:
-                st.stop()
-            lat, lon = coords
-        else:
-            try:
-                lat = float(lat_input)
-                lon = float(lon_input)
-            except ValueError:
-                st.error("Please enter valid numeric coordinates.")
-                st.stop()
+    coords = get_coordinates_from_city(city_name)
+    if coords is None:
+        st.stop()
+    lat, lon = coords
 
-        gyms = get_nearby_gyms(lat, lon, radius=radius)
+    gyms = get_nearby_gyms(lat, lon)
 
-        if not gyms:
-            st.info("No gyms were found near this location. Try a bigger radius or another place.")
-            st.stop()
+    if not gyms:
+        st.info("No gyms were found near this location. Try another city or try again shortly.")
+        st.stop()
 
-        # --- Show results on a map ---
-        st.subheader("📍 Nearby gyms")
+    # Add a simple sub-area label to each gym result.
+    for gym in gyms:
+        gym["sub_area"] = infer_sub_area(gym["name"], gym["address"], city_name)
 
-        map_center = [lat, lon]
-        gym_map = folium.Map(location=map_center, zoom_start=13)
+    # --- Show filters for sub-area and gym selection ---
+    st.subheader("📍 Choose a gym")
 
-        # Add a marker for the search location.
+    sub_areas = sorted({gym["sub_area"] for gym in gyms})
+    selected_sub_area = st.selectbox("Select Sub-Area", sub_areas)
+
+    area_gyms = [gym for gym in gyms if gym["sub_area"] == selected_sub_area]
+    gym_names = [gym["name"] for gym in area_gyms]
+    selected_gym_name = st.selectbox("Select Gym", gym_names)
+    selected_gym = next(gym for gym in area_gyms if gym["name"] == selected_gym_name)
+
+    st.divider()
+
+    # --- Show selected gym details ---
+    info_col, map_col = st.columns([1, 2])
+
+    with info_col:
+        st.info(f"**Gym Name:**\n{selected_gym['name']}")
+        st.success(f"**Address:**\n{selected_gym['address']}")
+        st.warning(f"**Coordinates:**\nLat: {selected_gym['latitude']}\nLon: {selected_gym['longitude']}")
+
+    with map_col:
+        map_center = [selected_gym["latitude"], selected_gym["longitude"]]
+        gym_map = folium.Map(location=map_center, zoom_start=15)
+
         folium.Marker(
             map_center,
-            popup="Search location",
-            tooltip="Search location",
-            icon=folium.Icon(color="red", icon="home", prefix="fa")
+            popup=f"<b>{selected_gym['name']}</b><br>{selected_gym['address']}",
+            tooltip=selected_gym["name"],
+            icon=folium.Icon(color="blue", icon="dumbbell", prefix="fa")
         ).add_to(gym_map)
 
-        # Add one marker for each gym found.
-        for gym in gyms:
-            folium.Marker(
-                [gym["latitude"], gym["longitude"]],
-                popup=f"<b>{gym['name']}</b><br>{gym['address']}",
-                tooltip=gym["name"],
-                icon=folium.Icon(color="blue", icon="dumbbell", prefix="fa")
-            ).add_to(gym_map)
+        components.html(gym_map.get_root().render(), height=350, scrolling=True)
 
-        st_folium(gym_map, width="100%", height=450)
-
-        # --- Show gym details in a simple table ---
-        gym_df = pd.DataFrame(gyms)
-        gym_df = gym_df[["name", "address", "latitude", "longitude"]]
-        gym_df.columns = ["Gym Name", "Address", "Latitude", "Longitude"]
-        st.dataframe(gym_df, use_container_width=True)
+    # --- Show gym list in a simple table ---
+    gym_df = pd.DataFrame(area_gyms)
+    gym_df = gym_df[["name", "address", "latitude", "longitude"]]
+    gym_df.columns = ["Gym Name", "Address", "Latitude", "Longitude"]
+    st.dataframe(gym_df, use_container_width=True)
 
 else:
-    st.info("Enter a location above and click the button to search for nearby gyms.")
+    st.info("Select a city and click the button to search for nearby gyms.")
