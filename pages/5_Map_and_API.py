@@ -8,63 +8,64 @@ import streamlit as st
 import pandas as pd
 import folium
 from streamlit_folium import st_folium
-from utils.api import geocode_place, fetch_weather
+from utils.api import fetch_weather
 
 st.set_page_config(page_title="Map & API Insights", layout="wide")
-st.title("🗺️ Map & Live Data")
+st.title("🗺️ Bangalore Gym Finder")
 
-st.sidebar.header("Location Search & Filters")
-query = st.sidebar.text_input("Search place (city, postcode, address)", "London")
-limit = st.sidebar.slider("Max results", 1, 20, 8)
-show_weather = st.sidebar.checkbox("Show weather KPIs for first result", value=True)
+st.sidebar.header("Bangalore Areas")
+st.sidebar.markdown("Select an area in Bangalore to view gyms in that area.")
 
-if st.sidebar.button("Search"):
-    with st.spinner("Geocoding..."):
-        try:
-            places = geocode_place(query, limit=limit)
-        except Exception as e:
-            st.error(f"Geocoding failed: {e}")
-            places = []
+# Load gyms data
+gyms_path = ROOT / "data" / "gyms.csv"
+df_gyms = pd.read_csv(gyms_path)
 
-    if not places:
-        st.warning("No places found for that query.")
-    else:
-        # Build a DataFrame of results
-        df = pd.DataFrame([{"name": p.get("display_name", ""), "lat": float(p["lat"]), "lon": float(p["lon"])} for p in places])
-        st.write(f"Found {len(df)} places for '{query}'")
+# Derive area name heuristically: prefer last two words if repeated, else last word
+def derive_area(name, candidates_count):
+    parts = name.split()
+    tail2 = " ".join(parts[-2:]) if len(parts) >= 2 else parts[-1]
+    tail1 = parts[-1]
+    if candidates_count.get(tail2, 0) >= 3:
+        return tail2
+    return tail1
 
-        # Show map centered on first place
-        center = [df.loc[0, "lat"], df.loc[0, "lon"]]
-        m = folium.Map(location=center, zoom_start=12)
-        for _, r in df.iterrows():
-            folium.Marker([r["lat"], r["lon"]], popup=r["name"]).add_to(m)
+# Count tail2 occurrences
+tails = [" ".join(n.split()[-2:]) if len(n.split())>=2 else n.split()[-1] for n in df_gyms["Gym"]]
+from collections import Counter
+tails_count = Counter(tails)
 
-        st_folium(m, width=900, height=600)
+areas = []
+areas_map = {}
+for name in df_gyms["Gym"]:
+    area = derive_area(name, tails_count)
+    areas_map.setdefault(area, []).append(name)
 
-        # Show table and download
-        st.dataframe(df)
-        csv = df.to_csv(index=False).encode("utf-8")
-        st.download_button("Download search results (CSV)", data=csv, file_name="places.csv", mime="text/csv")
+areas = sorted(areas_map.keys())
 
-        # Weather KPIs for first result
-        if show_weather:
-            lat = center[0]; lon = center[1]
-            try:
-                w = fetch_weather(lat, lon)
-                daily = w.get("daily", {})
-                temps_max = daily.get("temperature_2m_max", [])
-                temps_min = daily.get("temperature_2m_min", [])
-                prec = daily.get("precipitation_sum", [])
+# Keep only Bangalore areas (they are all in the CSV). Provide dropdown.
+selected_area = st.sidebar.selectbox("Select area (Bangalore)", options=areas)
 
-                col1, col2, col3 = st.columns(3)
-                if temps_max:
-                    col1.metric("Avg max temp (next days)", f"{sum(temps_max)/len(temps_max):.1f} °C")
-                if temps_min:
-                    col2.metric("Avg min temp (next days)", f"{sum(temps_min)/len(temps_min):.1f} °C")
-                if prec:
-                    col3.metric("Total precip (next days)", f"{sum(prec):.1f} mm")
-            except Exception as e:
-                st.warning(f"Unable to fetch weather: {e}")
+# Optional filter for gym name/address within area
+search_term = st.sidebar.text_input("Filter gyms (name/address)", value="")
 
+st.write(f"Showing gyms for **{selected_area}**, filtered by: '{search_term}'")
+
+# Filter gyms by derived area
+filtered_names = areas_map.get(selected_area, [])
+df_area = df_gyms[df_gyms["Gym"].isin(filtered_names)].copy()
+if search_term:
+    df_area = df_area[df_area["Gym"].str.contains(search_term, case=False, na=False)]
+
+if df_area.empty:
+    st.warning("No gyms found for selected area / filter.")
 else:
-    st.info("Enter a place in the sidebar and click Search to geocode and display results.")
+    # Center map on the average location of gyms in area
+    center = [df_area["Latitude"].mean(), df_area["Longitude"].mean()]
+    m = folium.Map(location=center, zoom_start=13)
+    for _, r in df_area.iterrows():
+        folium.Marker([r["Latitude"], r["Longitude"]], popup=r["Gym"]).add_to(m)
+
+    st_folium(m, width=900, height=600)
+    st.dataframe(df_area)
+    csv = df_area.to_csv(index=False).encode("utf-8")
+    st.download_button("Download gyms (CSV)", data=csv, file_name=f"gyms_{selected_area}.csv", mime="text/csv")
