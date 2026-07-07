@@ -9,6 +9,13 @@ import streamlit.components.v1 as components
 st.title("🏋️ Gym Finder")
 st.caption("Find nearby gyms with live OpenStreetMap data.")
 
+# Global list of preferred Bangalore sub-areas (15)
+KNOWN_SUBAREAS = [
+    "koramangala", "indiranagar", "whitefield", "electronic city", "itpl",
+    "jayanagar", "hsr layout", "marathahalli", "btm layout", "malleshwaram",
+    "rajajinagar", "yelahanka", "hebbal", "banashankari", "jp nagar"
+]
+
 
 # --- Helper function: convert a city name into coordinates ---
 def get_coordinates_from_city(city_name):
@@ -41,14 +48,7 @@ def infer_sub_area(name, address, city_name=""):
     """Create a simple sub-area label from the gym name or address."""
     text = f"{name} {address}".lower()
 
-# Preferred sub-areas for Bangalore (top 15)
-    known_areas = [
-        "koramangala", "indiranagar", "whitefield", "electronic city", "itpl",
-        "jayanagar", "hsr layout", "marathahalli", "btm layout", "malleshwaram",
-        "rajajinagar", "yelahanka", "hebbal", "banashankari", "jp nagar"
-    ]
-
-    for area in known_areas:
+    for area in KNOWN_SUBAREAS:
         if area in text:
             return area.title()
 
@@ -166,10 +166,15 @@ if st.button("Search gyms"):
     # --- Show filters for sub-area and gym selection ---
     st.subheader("📍 Choose a gym")
 
-    sub_areas = sorted({gym["sub_area"] for gym in gyms})
+    # Show the full list of preferred sub-areas (title-cased) plus 'Other Area'
+    sub_areas = [area.title() for area in KNOWN_SUBAREAS] + ["Other Area"]
     selected_sub_area = st.selectbox("Select Sub-Area", sub_areas)
 
-    area_gyms = [gym for gym in gyms if gym["sub_area"] == selected_sub_area]
+    # Filter gyms by selected sub-area. If none found, fall back to showing all gyms.
+    area_gyms = [gym for gym in gyms if gym.get("sub_area") == selected_sub_area]
+    if not area_gyms:
+        st.info(f"No gyms found in {selected_sub_area}. Showing all nearby gyms instead.")
+        area_gyms = gyms
     gym_names = [gym["name"] for gym in area_gyms]
     selected_gym_name = st.selectbox("Select Gym", gym_names)
     selected_gym = next(gym for gym in area_gyms if gym["name"] == selected_gym_name)
