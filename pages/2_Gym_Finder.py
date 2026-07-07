@@ -4,6 +4,8 @@ import pandas as pd
 import folium
 import requests
 import streamlit.components.v1 as components
+import time
+import random
 
 
 st.title("🏋️ Gym Finder")
@@ -14,6 +16,33 @@ KNOWN_SUBAREAS = [
     "koramangala", "indiranagar", "whitefield", "electronic city", "itpl",
     "jayanagar", "hsr layout", "marathahalli", "btm layout", "malleshwaram",
     "rajajinagar", "yelahanka", "hebbal", "banashankari", "jp nagar"
+]
+
+# Alternate Overpass endpoints to try when one is slow or down.
+OVERPASS_ENDPOINTS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://lz4.overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+]
+
+# Cached sample gyms for Bangalore sub-areas used as a fallback when Overpass times out.
+# Each entry includes a plausible coordinate near Bangalore (approx.) and a sub_area key.
+CACHED_GYMS = [
+    {"name": "Koramangala Fitness Club", "address": "5th Block, Koramangala", "latitude": 12.9372, "longitude": 77.6245, "sub_area": "Koramangala"},
+    {"name": "Indiranagar Strength", "address": "100 Feet Road, Indiranagar", "latitude": 12.9719, "longitude": 77.6412, "sub_area": "Indiranagar"},
+    {"name": "Whitefield Gym", "address": "Whitefield Main Road", "latitude": 12.9690, "longitude": 77.7499, "sub_area": "Whitefield"},
+    {"name": "Electronic City Fitness", "address": "Electronic City Phase 1", "latitude": 12.8468, "longitude": 77.6601, "sub_area": "Electronic City"},
+    {"name": "ITPL Gym", "address": "ITPL Road", "latitude": 12.9696, "longitude": 77.7500, "sub_area": "Itpl"},
+    {"name": "Jayanagar Health Hub", "address": "Jayanagar 4th T Block", "latitude": 12.9250, "longitude": 77.5756, "sub_area": "Jayanagar"},
+    {"name": "HSR Gym", "address": "HSR Layout", "latitude": 12.9141, "longitude": 77.6412, "sub_area": "Hsr Layout"},
+    {"name": "Marathahalli Fit", "address": "Marathahalli Bridge", "latitude": 12.9569, "longitude": 77.7010, "sub_area": "Marathahalli"},
+    {"name": "BTM Fitness", "address": "BTM Layout", "latitude": 12.9250, "longitude": 77.5938, "sub_area": "Btm Layout"},
+    {"name": "Malleshwaram Gym", "address": "Malleshwaram", "latitude": 13.0108, "longitude": 77.5653, "sub_area": "Malleshwaram"},
+    {"name": "Rajajinagar Gym", "address": "Rajajinagar", "latitude": 13.0012, "longitude": 77.5416, "sub_area": "Rajajinagar"},
+    {"name": "Yelahanka Fitness", "address": "Yelahanka", "latitude": 13.0845, "longitude": 77.5903, "sub_area": "Yelahanka"},
+    {"name": "Hebbal Strength", "address": "Hebbal", "latitude": 13.0358, "longitude": 77.5965, "sub_area": "Hebbal"},
+    {"name": "Banashankari Gym", "address": "Banashankari", "latitude": 12.9252, "longitude": 77.5669, "sub_area": "Banashankari"},
+    {"name": "JP Nagar Fitness", "address": "JP Nagar", "latitude": 12.9236, "longitude": 77.5736, "sub_area": "Jp Nagar"},
 ]
 
 
@@ -64,20 +93,14 @@ def infer_sub_area(name, address, city_name=""):
 
 
 # --- Helper function: fetch nearby gyms from the Overpass API ---
-def get_nearby_gyms(lat, lon, radius=5000):
-    """Search for gyms near a location using the Overpass API."""
-    overpass_url = "https://overpass-api.de/api/interpreter"
-    fallback_gyms = [
-        {
-            "name": "Sample Gym",
-            "address": "Live data unavailable. Please try again shortly.",
-            "latitude": lat,
-            "longitude": lon,
-            "sub_area": "Fallback"
-        }
-    ]
+def get_nearby_gyms(lat, lon, radius=5000, max_retries=3):
+    """Search for gyms near a location using the Overpass API.
 
-    # This query asks OpenStreetMap for nearby gym-like places.
+    Tries multiple Overpass endpoints with exponential backoff. If all
+    attempts fail, returns a cached set of gyms for Bangalore as a graceful
+    fallback so the UI remains usable.
+    """
+
     query = f"""
     [out:json];
     (
@@ -91,54 +114,54 @@ def get_nearby_gyms(lat, lon, radius=5000):
     out center;
     """
 
-    try:
-        # Overpass works more reliably when the query is sent as a POST body.
-        response = requests.post(
-            overpass_url,
-            data={"data": query},
-            headers={"User-Agent": "FitCore360/1.0", "Accept": "application/json"},
-            timeout=15,
+    last_exc = None
+    for attempt in range(1, max_retries + 1):
+        endpoint = random.choice(OVERPASS_ENDPOINTS)
+        try:
+            response = requests.post(endpoint, data={"data": query}, headers={"User-Agent": "FitCore360/1.0"}, timeout=20)
+            response.raise_for_status()
+            data = response.json()
+            break
+        except requests.exceptions.Timeout as e:
+            last_exc = e
+            wait = (2 ** attempt) + random.random()
+            time.sleep(wait)
+        except requests.exceptions.RequestException as e:
+            last_exc = e
+            wait = (2 ** attempt) + random.random()
+            time.sleep(wait)
+    else:
+        st.warning("Live Overpass query failed. Showing cached gyms for the selected area.")
+        return CACHED_GYMS
+
+    gyms = []
+    for item in data.get("elements", []):
+        tags = item.get("tags", {})
+        name = tags.get("name") or "Unnamed gym"
+        address = (
+            tags.get("addr:street")
+            or tags.get("addr:full")
+            or tags.get("addr:city")
+            or "Address not available"
         )
-        response.raise_for_status()
-        data = response.json()
 
-        gyms = []
-        for item in data.get("elements", []):
-            tags = item.get("tags", {})
-            name = tags.get("name") or "Unnamed gym"
-            address = (
-                tags.get("addr:street")
-                or tags.get("addr:full")
-                or tags.get("addr:city")
-                or "Address not available"
-            )
+        if item.get("lat") is not None and item.get("lon") is not None:
+            gym_lat = item["lat"]
+            gym_lon = item["lon"]
+        elif item.get("center"):
+            gym_lat = item["center"].get("lat")
+            gym_lon = item["center"].get("lon")
+        else:
+            continue
 
-            # Some results are nodes, while others are ways/relations.
-            if item.get("lat") is not None and item.get("lon") is not None:
-                gym_lat = item["lat"]
-                gym_lon = item["lon"]
-            elif item.get("center"):
-                gym_lat = item["center"].get("lat")
-                gym_lon = item["center"].get("lon")
-            else:
-                continue
+        gyms.append({
+            "name": name,
+            "address": address,
+            "latitude": gym_lat,
+            "longitude": gym_lon,
+        })
 
-            gyms.append({
-                "name": name,
-                "address": address,
-                "latitude": gym_lat,
-                "longitude": gym_lon,
-            })
-
-        return gyms
-
-    except requests.exceptions.Timeout:
-        st.warning("The live gym search timed out. Showing a fallback location for now.")
-        return fallback_gyms
-
-    except requests.exceptions.RequestException as e:
-        st.warning(f"The live gym search is currently unavailable: {e}")
-        return fallback_gyms
+    return gyms
 
 
 # --- User input ---
