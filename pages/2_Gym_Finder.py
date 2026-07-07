@@ -138,12 +138,16 @@ def get_nearby_gyms(lat, lon, radius=5000, max_retries=3):
     for item in data.get("elements", []):
         tags = item.get("tags", {})
         name = tags.get("name") or "Unnamed gym"
-        address = (
-            tags.get("addr:street")
-            or tags.get("addr:full")
-            or tags.get("addr:city")
-            or "Address not available"
-        )
+        address_parts = [
+            tags.get("addr:housenumber"),
+            tags.get("addr:street"),
+            tags.get("addr:suburb"),
+            tags.get("addr:city"),
+        ]
+        address = ", ".join([part for part in address_parts if part])
+
+        if not address:
+            continue
 
         if item.get("lat") is not None and item.get("lon") is not None:
             gym_lat = item["lat"]
@@ -165,10 +169,9 @@ def get_nearby_gyms(lat, lon, radius=5000, max_retries=3):
 
 
 # --- User input ---
-# Restrict the app to Bangalore only with a curated list of sub-areas
-st.subheader("City: Bangalore")
-st.info("This page searches only within Bangalore. Select a sub-area after searching.")
-city_name = "Bangalore"
+st.subheader("City")
+city_name = st.selectbox("Select city", ["Bangalore"])
+st.info("Search gyms in Bangalore and then choose an available sub-area.")
 
 if st.button("Search gyms"):
     coords = get_coordinates_from_city(city_name)
@@ -189,15 +192,16 @@ if st.button("Search gyms"):
     # --- Show filters for sub-area and gym selection ---
     st.subheader("📍 Choose a gym")
 
-    # Show the full list of preferred sub-areas (title-cased) plus 'Other Area'
-    sub_areas = [area.title() for area in KNOWN_SUBAREAS] + ["Other Area"]
-    selected_sub_area = st.selectbox("Select Sub-Area", sub_areas)
+    available_sub_areas = sorted({gym["sub_area"] for gym in gyms})
+    if "Other Area" not in available_sub_areas:
+        available_sub_areas.append("Other Area")
+    selected_sub_area = st.selectbox("Select Sub-Area", ["All Areas"] + available_sub_areas)
 
-    # Filter gyms by selected sub-area. If none found, fall back to showing all gyms.
-    area_gyms = [gym for gym in gyms if gym.get("sub_area") == selected_sub_area]
-    if not area_gyms:
-        st.info(f"No gyms found in {selected_sub_area}. Showing all nearby gyms instead.")
+    if selected_sub_area == "All Areas":
         area_gyms = gyms
+    else:
+        area_gyms = [gym for gym in gyms if gym.get("sub_area") == selected_sub_area]
+
     gym_names = [gym["name"] for gym in area_gyms]
     selected_gym_name = st.selectbox("Select Gym", gym_names)
     selected_gym = next(gym for gym in area_gyms if gym["name"] == selected_gym_name)
