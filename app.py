@@ -1,3 +1,10 @@
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import streamlit as st
 from utils.calculations import calculate_bmi, get_bmi_category, get_health_suggestion
 from utils.storage import append_to_csv

@@ -1,3 +1,10 @@
+from pathlib import Path
+import sys
+
+ROOT = Path(__file__).resolve().parent.parent
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 import streamlit as st
 import pandas as pd
 from utils.csv_handler import save_uploaded_csv, get_uploaded_csv, delete_csv, delete_row_csv
