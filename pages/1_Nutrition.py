@@ -40,7 +40,12 @@ if os.path.exists(food_csv_path):
     if st.session_state.get('user_data'):
         current_user = st.session_state['user_data'].get('name')
 
-    user_name = st.text_input("Your name", value=current_user or "")
+    # If session already has a user name, show it as read-only text; otherwise ask for input
+    if current_user:
+        st.markdown(f"**User:** {current_user}")
+        user_name = current_user
+    else:
+        user_name = st.text_input("Your name", value="")
 
     if st.button("Add to Tracker"):
         display_name = f"{selected_food}  |  {servings}X"
