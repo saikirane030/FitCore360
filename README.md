@@ -82,4 +82,3 @@ Then open the local URL shown in the terminal.
 
 Built by Sai Kiran E.
 
-This project demonstrates core Python and Streamlit skills suitable for interviews, internships, and entry-level software development roles.
