@@ -24,10 +24,10 @@ This project is designed to showcase practical Python development, data handling
 
 ## Project Structure
 
-- fitcore360_app/app.py — main Streamlit application entry point
-- fitcore360_app/pages/ — multi-page experience for nutrition, gym finder, CSV upload, and dashboard views
-- fitcore360_app/utils/ — reusable logic for calculations, CSV storage, and data handling
-- fitcore360_app/data/ — sample datasets used by the app
+- app.py — main Streamlit application entry point
+- pages/ — multi-page experience for nutrition, gym finder, CSV upload, and dashboard views
+- utils/ — reusable logic for calculations, CSV storage, and data handling
+- data/ — sample datasets used by the app
 
 ## Features
 
@@ -58,25 +58,10 @@ pip install -r requirements.txt
 ## Run the App
 
 ```bash
-cd fitcore360_app
 streamlit run app.py
 ```
 
 Then open the local URL shown in the terminal.
-
-## Deployment (Streamlit Community Cloud)
-
-1. Push your latest code to GitHub (already done).
-2. Sign in at https://share.streamlit.io with your GitHub account.
-3. Click "New app" → select the `saikirane030/FitCore360` repository.
-4. Set Branch to `main` and File path to `/app.py`, then click "Deploy app".
-5. Streamlit Cloud will install packages from `requirements.txt`. If deployment fails, check the app logs in the Streamlit Cloud dashboard.
-
-Notes:
-
-- No additional environment variables are required for basic functionality.
-- If Overpass (OpenStreetMap) requests are rate-limited, the app includes a fallback message.
-- To force a fresh dependency install, update `requirements.txt` with exact versions.
 
 ## How It Works
 
