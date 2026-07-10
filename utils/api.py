@@ -1,10 +1,14 @@
 import requests
 
-def geocode_place(query, limit=10):
+def geocode_place(query, limit=10, countrycodes="in"):
     """Use Nominatim (OpenStreetMap) to geocode a query string to places.
+    By default restricts results to India via `countrycodes='in'`.
     Returns a list of dicts with 'lat', 'lon', 'display_name'."""
     url = "https://nominatim.openstreetmap.org/search"
     params = {"q": query, "format": "json", "limit": limit}
+    # Restrict results to a specific country if provided (ISO 3166-1alpha2, e.g. 'in')
+    if countrycodes:
+        params["countrycodes"] = countrycodes
     headers = {"User-Agent": "FitCore360-app"}
     r = requests.get(url, params=params, headers=headers, timeout=10)
     r.raise_for_status()
