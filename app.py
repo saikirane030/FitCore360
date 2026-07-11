@@ -37,7 +37,6 @@ with st.form("profile_form"):
             "age": age,
             "height": height,
             "height_display": height_display,
-            "height_unit": height_unit,
             "weight": weight
         }
         
