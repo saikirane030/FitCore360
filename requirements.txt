@@ -4,3 +4,8 @@ folium
 streamlit-folium
 fpdf
 requests
+numpy
+plotly
+openpyxl
+geopy
+
