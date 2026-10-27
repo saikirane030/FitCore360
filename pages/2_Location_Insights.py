@@ -1,116 +1,123 @@
 from pathlib import Path
-import sys
-ROOT = Path(__file__).resolve().parent.parent
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
+from html import escape
 
-import streamlit as st
-import pandas as pd
 import folium
+import pandas as pd
+import streamlit as st
 from streamlit_folium import st_folium
 
-st.set_page_config(page_title="Location Insights", layout="wide")
-st.title("Location Insights — Bengaluru Gyms")
+from utils.ui import apply_app_style, insight, page_header
 
-# Load gyms data
-gyms_path = ROOT / "data" / "gyms.csv"
-df_gyms = pd.read_csv(gyms_path)
+ROOT = Path(__file__).resolve().parent.parent
+GYMS_FILE = ROOT / "data" / "gyms.csv"
+BRAND_PREFIXES = [
+    "Fitness First", "Power World Gym", "Muscle Factory", "Anytime Fitness",
+    "Stryv Fitness", "Snap Fitness", "Beast Mode Gym", "Ultimate Fitness",
+    "Iron Paradise", "Spartan Fitness", "Gold's Gym", "Cult.fit", "Burn Fitness",
+    "Fit Arena", "Elite Fitness",
+]
 
-# Derive area name heuristically: prefer last two words if repeated, else last word
-def derive_area(name, candidates_count):
-    parts = name.split()
-    tail2 = " ".join(parts[-2:]) if len(parts) >= 2 else parts[-1]
-    tail1 = parts[-1]
-    if candidates_count.get(tail2, 0) >= 3:
-        return tail2
-    return tail1
+st.set_page_config(page_title="Bengaluru gym directory | FitCore 360", page_icon="📍", layout="wide")
+apply_app_style()
+page_header(
+    "FITCORE 360  /  LOCATION DATA",
+    "Explore the Bengaluru gym directory.",
+    "Compare the locations and brands included in the project dataset, then inspect the records on a map.",
+)
 
-# Count tail2 occurrences
-tails = [" ".join(n.split()[-2:]) if len(n.split())>=2 else n.split()[-1] for n in df_gyms["Gym"]]
-from collections import Counter
-tails_count = Counter(tails)
+if not GYMS_FILE.exists():
+    st.error("The gym directory is missing: data/gyms.csv.")
+    st.stop()
 
-areas_map = {}
-for name in df_gyms["Gym"]:
-    area = derive_area(name, tails_count)
-    areas_map.setdefault(area, []).append(name)
+gyms = pd.read_csv(GYMS_FILE)
+required = {"Gym", "Latitude", "Longitude"}
+if not required.issubset(gyms.columns) or gyms.empty:
+    st.error("The gym directory needs Gym, Latitude, and Longitude columns with at least one row.")
+    st.stop()
 
-
-# --- Sidebar filters (5 commonly used controls) ---
-areas = sorted(areas_map.keys())
-selected_area = st.sidebar.selectbox("Select area (Bengaluru)", options=areas)
-
-# Derive brand (first token) for multiselect
-def derive_brand(gym_name):
-    return gym_name.split()[0]
+gyms["Latitude"] = pd.to_numeric(gyms["Latitude"], errors="coerce")
+gyms["Longitude"] = pd.to_numeric(gyms["Longitude"], errors="coerce")
+gyms = gyms.dropna(subset=["Gym", "Latitude", "Longitude"]).copy()
+gyms = gyms[gyms["Latitude"].between(-90, 90) & gyms["Longitude"].between(-180, 180)]
 
 
-# Budget tier filter: Budget, Mid-range, Premium
-tier_options = ["Budget", "Mid-range", "Premium"]
-selected_tiers = st.sidebar.multiselect("Filter by budget tier", options=tier_options, default=tier_options)
+def split_listing(gym_name):
+    normalized_name = str(gym_name).strip()
+    for brand in BRAND_PREFIXES:
+        if normalized_name.casefold().startswith(brand.casefold()):
+            return brand, normalized_name[len(brand):].strip()
+    parts = normalized_name.split(maxsplit=1)
+    return (parts[0], parts[1] if len(parts) > 1 else "Unspecified")
 
-# Simple brand -> tier mapping (heuristic)
-brand_tier_map = {
-    "Gold's": "Premium",
-    "Fitness": "Premium",
-    "Elite": "Premium",
-    "Cult.fit": "Mid-range",
-    "Anytime": "Mid-range",
-    "Stryv": "Mid-range",
-    "Spartan": "Mid-range",
-    "Power": "Mid-range",
-    "Muscle": "Mid-range",
-    "Iron": "Mid-range",
-    "Snap": "Budget",
-    "Beast": "Budget",
-    "Burn": "Budget",
-    "Fit": "Budget",
-    "Ultimate": "Budget"
-}
 
-st.write(f"Showing gyms for **{selected_area}**")
+gyms[["Brand", "Area"]] = pd.DataFrame(gyms["Gym"].apply(split_listing).tolist(), index=gyms.index)
+gyms.loc[gyms["Area"].eq(""), "Area"] = "Unspecified"
+areas = sorted(gyms["Area"].unique().tolist())
 
-# Filter gyms by derived area
-selected_names = areas_map.get(selected_area, [])
-df_area = df_gyms[df_gyms["Gym"].isin(selected_names)].copy()
+with st.sidebar:
+    st.markdown("### Directory filters")
+    selected_areas = st.multiselect("Areas", areas, default=areas)
+    brands = sorted(gyms["Brand"].unique().tolist())
+    selected_brands = st.multiselect("Brands", brands, default=brands)
 
-# (previous brand/search filters removed; using budget tiers now)
+filtered = gyms[gyms["Area"].isin(selected_areas) & gyms["Brand"].isin(selected_brands)]
+directory_total = len(gyms)
+top_area = gyms["Area"].value_counts()
+top_brand = gyms["Brand"].value_counts()
 
-# Apply budget tier filter using heuristic mapping
-def derive_tier_from_brand(brand):
-    return brand_tier_map.get(brand, "Mid-range")
+k1, k2, k3, k4 = st.columns(4)
+k1.metric("Directory entries", f"{directory_total:,}")
+k2.metric("Areas represented", gyms["Area"].nunique())
+k3.metric("Brands represented", gyms["Brand"].nunique())
+k4.metric("Shown with filters", len(filtered))
+st.caption("Counts describe rows in the bundled CSV, not a complete or independently verified list of Bengaluru gyms.")
 
-if not df_area.empty:
-    df_area = df_area[df_area["Gym"].apply(lambda x: derive_tier_from_brand(derive_brand(x)) in selected_tiers)]
-
-if df_area.empty:
-    st.warning("No gyms found for selected area.")
+if filtered.empty:
+    st.warning("No listings match the selected filters. Select at least one area and brand.")
 else:
-    # KPI row
-    total_in_area = len(df_gyms[df_gyms["Gym"].isin(areas_map.get(selected_area, []))])
-    gyms_shown = len(df_area)
-    brands_shown = df_area["Gym"].apply(derive_brand).nunique()
-    top_brand = df_area["Gym"].apply(derive_brand).value_counts()
-    top_brand_share = 0
-    if gyms_shown > 0 and not top_brand.empty:
-        top_brand_share = round((top_brand.iloc[0] / gyms_shown) * 100, 1)
+    map_col, chart_col = st.columns([1.2, 0.8], gap="large")
+    with map_col:
+        st.subheader("Directory locations")
+        center = [filtered["Latitude"].mean(), filtered["Longitude"].mean()]
+        map_view = folium.Map(location=center, zoom_start=11, tiles="CartoDB positron")
+        for _, row in filtered.iterrows():
+            folium.CircleMarker(
+                location=[row["Latitude"], row["Longitude"]],
+                radius=5,
+                color="#183b32",
+                fill=True,
+                fill_color="#d3f36b",
+                fill_opacity=0.9,
+                popup=escape(f"{row['Gym']} · {row['Area']}"),
+            ).add_to(map_view)
+        st_folium(map_view, width=None, height=440, use_container_width=True, returned_objects=[])
+    with chart_col:
+        st.subheader("Listings by area")
+        area_counts = filtered.groupby("Area").size().sort_values()
+        st.bar_chart(area_counts.rename_axis("Area").to_frame("Listings"), color="#668443", height=330)
+        brand_counts = filtered["Brand"].value_counts()
+        if not brand_counts.empty:
+            insight(
+                f"The largest area in the full directory is {top_area.index[0]} "
+                f"({top_area.iloc[0]} listings); the most represented brand is {top_brand.index[0]} "
+                f"({top_brand.iloc[0]}). This describes directory coverage—not real-world market share."
+            )
 
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Gyms Shown", gyms_shown)
-    k2.metric("Total in Area", total_in_area)
-    k3.metric("Unique Brands", brands_shown)
-    k4.metric("Top Brand Share", f"{top_brand_share}%")
+st.subheader("Dataset scope")
+insight(
+    "The CSV provides gym names and coordinates, but no prices, membership terms, ratings, facilities, or opening hours. "
+    "Map points come directly from the file and have not been independently verified; use this view to explore the dataset, not as a live recommendation."
+)
 
-    # Center map on the average location of gyms in area
-    center = [df_area["Latitude"].mean(), df_area["Longitude"].mean()]
-    m = folium.Map(location=center, zoom_start=13)
-    for _, r in df_area.iterrows():
-        folium.Marker([r["Latitude"], r["Longitude"]], popup=r["Gym"]).add_to(m)
-
-    st_folium(m, width=900, height=600)
-    # Provide an Address column instead of raw latitude/longitude
-    df_area = df_area.copy()
-    df_area["Address"] = df_area["Gym"] + ", Bengaluru, Karnataka, India"
-    st.dataframe(df_area[["Gym", "Address"]])
-    csv = df_area[["Gym", "Address"]].to_csv(index=False).encode("utf-8")
-    st.download_button("Download gyms (CSV)", data=csv, file_name=f"gyms_{selected_area}.csv", mime="text/csv")
+with st.expander("View filtered listing records"):
+    st.dataframe(
+        filtered[["Gym", "Area", "Brand", "Latitude", "Longitude"]],
+        hide_index=True,
+        use_container_width=True,
+    )
+    st.download_button(
+        "Download filtered listings",
+        filtered[["Gym", "Area", "Latitude", "Longitude"]].to_csv(index=False).encode("utf-8"),
+        "fitcore360_gym_directory.csv",
+        "text/csv",
+    )

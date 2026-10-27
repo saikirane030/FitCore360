@@ -5,9 +5,9 @@ def calculate_bmi(weight, height_cm):
 def get_bmi_category(bmi):
     if bmi < 18.5:
         return "Underweight"
-    elif 18.5 <= bmi < 24.9:
+    elif bmi < 25:
         return "Normal"
-    elif 25 <= bmi < 29.9:
+    elif bmi < 30:
         return "Overweight"
     else:
         return "Obese"
@@ -22,16 +22,14 @@ def get_health_suggestion(category):
     else:
         return "Consult a healthcare provider for a structured plan."
 
-def calculate_calories(weight, height, age, goal):
-    # Standard BMR Calculation (Basal Metabolic Rate)
-    bmr = (10 * weight) + (6.25 * height) - (5 * age) - 78
-    
-    # Maintenance calories (assuming light daily activity)
+def calculate_calories(weight, height, age, goal, sex="Male"):
+    sex_adjustment = 5 if sex == "Male" else -161
+    bmr = (10 * weight) + (6.25 * height) - (5 * age) + sex_adjustment
     maintenance = bmr * 1.375
     
     if goal == "Lose Weight":
-        return int(maintenance - 500) # 500 calorie deficit
+        return int(maintenance - 500)
     elif goal == "Gain Weight":
-        return int(maintenance + 500) # 500 calorie surplus
+        return int(maintenance + 500)
     else:
-        return int(maintenance) # Stay Fit / Maintain
+        return int(maintenance)

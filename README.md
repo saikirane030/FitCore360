@@ -1,84 +1,42 @@
-# FitCore360
+# FitCore 360
 
-FitCore360 is a modern fitness analytics web app built with Python and Streamlit. It helps users track their profile, calculate BMI, estimate daily calorie goals, explore nutrition and gym-related insights, and export a personal health report.
+FitCore 360 is a Streamlit fitness and wellness analytics project. It combines personal BMI check-ins, calorie estimates, a food diary, a Bengaluru gym-directory dataset, and an uploadable CSV analysis page.
 
-This project is designed to showcase practical Python development, data handling, dashboard building, and clean UI design in a portfolio-friendly format.
+## What the project demonstrates
 
-## Highlights
+- BMI screening with a dated check-in history and basic data-quality filtering.
+- Estimated daily energy needs using the Mifflin–St Jeor equation, with an explicit light-activity assumption.
+- A nutrition diary and calorie-reference analysis that explains the limits of the bundled food data.
+- Gym-directory filtering, mapping, and area/brand counts, with a clear note that the directory is not independently verified.
+- CSV validation, missing-value checks, descriptive statistics, and chart interpretations that distinguish sample patterns from causal or population claims.
+- A shared responsive interface using a 60/30/10 visual balance: warm neutral canvas, forest-green structure, and lime accent.
 
-- BMI calculation based on user input
-- Height input in feet for a simple user experience
-- Daily calorie goal recommendations for different fitness goals
-- Nutrition, gym finder, CSV upload, and dashboard pages
-- CSV-based data persistence for simple record keeping
-- Downloadable personal health report
+## Data notes
 
-## Tech Stack
+- Profile and nutrition entries are stored in local CSV files under `data/`.
+- The bundled profile CSV contains five illustrative example rows, not real or representative population data. Replace it with a properly sourced dataset for a substantive group analysis.
+- BMI is a screening measure, not a diagnosis. Historical values outside a broad plausibility range are excluded from trend charts but are not removed from the source files.
+- The food reference lists calories per serving only; it does not include macronutrients or micronutrients.
+- Gym names and coordinates are read from `data/gyms.csv`; they may be incomplete or unverified.
+- Calorie estimates vary between people and are not medical or dietary advice.
 
-- Python
-- Streamlit
-- Pandas
-- Folium
-- Streamlit-Folium
-- FPDF
+## Run locally
 
-## Project Structure
-
-- app.py — main Streamlit application entry point
-- pages/ — multi-page experience for nutrition, gym finder, CSV upload, and dashboard views
-- utils/ — reusable logic for calculations, CSV storage, and data handling
-- data/ — sample datasets used by the app
-
-## Features
-
-### 1. Profile & BMI Analysis
-Users can enter their name, age, weight, and height to calculate BMI and receive a health category suggestion.
-
-### 2. Calorie Goal Planning
-The app recommends an approximate daily calorie target based on user goals such as gain, maintain, or lose weight.
-
-### 3. Multi-Page Fitness Experience
-The app includes additional pages for nutrition planning, gym discovery, CSV upload, and a dashboard view.
-
-### 4. Report Export
-Users can download a personal health summary report for their profile.
-
-## Installation
-
-1. Clone the repository
-2. Create and activate a virtual environment
-3. Install dependencies
-
-```bash
+```powershell
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+python -m streamlit run app.py
 ```
 
-## Run the App
+Open the local URL printed by Streamlit, usually `http://localhost:8501`.
 
-```bash
-streamlit run app.py
-```
+## Project structure
 
-Then open the local URL shown in the terminal.
-
-## How It Works
-
-1. The user enters personal details in the main form.
-2. The app converts the entered height and calculates BMI.
-3. The app estimates calorie needs based on the selected fitness goal.
-4. The results are displayed and saved for future review.
-
-## Future Enhancements
-
-- Add user authentication
-- Store data in a database instead of CSV files
-- Create charts and trend analysis
-- Add machine learning-based diet recommendations
-- Deploy the app to a cloud platform
-
-## Author
-
-Built by E Sai Kiran .
-
+- `app.py` — personal profile, BMI check-in, calorie estimate, and check-in trend
+- `pages/1_Nutrition.py` — food reference and personal food log
+- `pages/2_Location_Insights.py` — gym directory map and area/brand analysis
+- `pages/3_CSV_Upload.py` — CSV upload, quality checks, descriptive charts, and row management
+- `pages/4_Dashboard.py` — profile-sample and check-in analytics
+- `utils/` — calculations, CSV persistence, and shared UI styling
+- `data/` — reference data and local CSV history
