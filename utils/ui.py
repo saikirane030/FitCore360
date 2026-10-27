@@ -21,8 +21,14 @@ def apply_app_style():
         [data-testid="stHeader"] { background: rgba(245,245,239,.88); }
         [data-testid="stSidebar"] { background: var(--forest); }
         [data-testid="stSidebar"] * { color: #f4f7ed; }
+        [data-testid="stSidebar"] span[role="button"],
+        [data-testid="stSidebar"] span[role="button"] * {
+            color: var(--forest) !important;
+        }
         [data-testid="stSidebar"] [data-testid="stRadio"] label { color: #f4f7ed; }
         [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p { color: #d4e0d7; }
+        [data-baseweb="popover"] [role="option"] { color: var(--ink); }
+        [data-baseweb="popover"] [role="option"] * { color: inherit; }
         .block-container { max-width: 1180px; padding-top: 2.2rem; padding-bottom: 4rem; }
         h1, h2, h3 { font-family: 'Trebuchet MS', 'Segoe UI', sans-serif !important; color: var(--ink); letter-spacing: -.035em; }
         h1 { font-weight: 800 !important; }
